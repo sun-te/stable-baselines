@@ -7,6 +7,12 @@ To use the rl baselines with custom environments, they just need to follow the *
 That is to say, your environment must implement the following methods (and inherits from OpenAI Gym Class):
 
 
+.. note::
+	If you are using images as input, the input values must be in [0, 255] as the observation
+	is normalized (dividing by 255 to have values in [0, 1]) when using CNN policies.
+
+
+
 .. code-block:: python
 
   import gym
@@ -44,11 +50,11 @@ Then you can define and train a RL agent with:
   model = A2C(CnnPolicy, env).learn(total_timesteps=1000)
 
 
-You can find a `complete guide online <https://github.com/openai/gym/tree/master/gym/envs#how-to-create-new-environments-for-gym>`_
+You can find a `complete guide online <https://github.com/openai/gym/blob/master/docs/creating-environments.md>`_
 on creating a custom Gym environment.
 
 
-Optionnaly, you can also register the environment with gym,
+Optionally, you can also register the environment with gym,
 that will allow you to create the RL agent in one line (and use ``gym.make()`` to instantiate the env).
 
 

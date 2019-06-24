@@ -15,14 +15,13 @@ class DDPGPolicy(BasePolicy):
     :param n_env: (int) The number of environments to run
     :param n_steps: (int) The number of steps to run for each environment
     :param n_batch: (int) The number of batch to run (n_envs * n_steps)
-    :param n_lstm: (int) The number of LSTM cells (for recurrent policies)
     :param reuse: (bool) If the policy is reusable or not
     :param scale: (bool) whether or not to scale the input
     """
 
-    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, scale=False):
-        super(DDPGPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=n_lstm, reuse=reuse,
-                                         scale=scale, add_action_ph=True)
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, scale=False):
+        super(DDPGPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, scale=scale,
+                                         add_action_ph=True)
         assert isinstance(ac_space, Box), "Error: the action space must be of type gym.spaces.Box"
         assert (np.abs(ac_space.low) == ac_space.high).all(), "Error: the action space low and high must be symmetric"
         self.qvalue_fn = None
@@ -101,13 +100,17 @@ class FeedForwardPolicy(DDPGPolicy):
     :param cnn_extractor: (function (TensorFlow Tensor, ``**kwargs``): (TensorFlow Tensor)) the CNN feature extraction
     :param feature_extraction: (str) The feature extraction type ("cnn" or "mlp")
     :param layer_norm: (bool) enable layer normalisation
+    :param act_fun: (tf.func) the activation function to use in the neural network.
     :param kwargs: (dict) Extra keyword arguments for the nature CNN feature extraction
     """
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None,
-                 cnn_extractor=nature_cnn, feature_extraction="cnn", layer_norm=False, **kwargs):
-        super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256,
-                                                reuse=reuse, scale=(feature_extraction == "cnn"))
+                 cnn_extractor=nature_cnn, feature_extraction="cnn",
+                 layer_norm=False, act_fun=tf.nn.relu, **kwargs):
+        super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
+                                                scale=(feature_extraction == "cnn"))
+
+        self._kwargs_check(feature_extraction, kwargs)
         self.layer_norm = layer_norm
         self.feature_extraction = feature_extraction
         self.cnn_kwargs = kwargs
@@ -120,7 +123,7 @@ class FeedForwardPolicy(DDPGPolicy):
 
         assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
 
-        self.activ = tf.nn.relu
+        self.activ = act_fun
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
         if obs is None:
@@ -160,7 +163,8 @@ class FeedForwardPolicy(DDPGPolicy):
                 if i == 0:
                     qf_h = tf.concat([qf_h, action], axis=-1)
 
-            qvalue_fn = tf.layers.dense(qf_h, 1, name=scope,
+            # the name attribute is used in pop-art normalization
+            qvalue_fn = tf.layers.dense(qf_h, 1, name='qf_output',
                                         kernel_initializer=tf.random_uniform_initializer(minval=-3e-3,
                                                                                          maxval=3e-3))
 

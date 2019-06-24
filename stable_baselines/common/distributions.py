@@ -45,7 +45,7 @@ class ProbabilityDistribution(object):
 
     def kl(self, other):
         """
-        Calculates the Kullback-Leiber divergence from the given probabilty distribution
+        Calculates the Kullback-Leibler divergence from the given probabilty distribution
 
         :param other: ([float]) the distibution to compare with
         :return: (float) the KL divergence of the two distributions
@@ -192,7 +192,10 @@ class MultiCategoricalProbabilityDistributionType(ProbabilityDistributionType):
 
         :param n_vec: ([int]) the vectors
         """
-        self.n_vec = n_vec
+        # Cast the variable because tf does not allow uint32
+        self.n_vec = n_vec.astype(np.int32)
+        # Check that the cast was valid
+        assert (self.n_vec > 0).all(), "Casting uint32 to int32 was invalid"
 
     def probability_distribution_class(self):
         return MultiCategoricalProbabilityDistribution
@@ -299,7 +302,6 @@ class CategoricalProbabilityDistribution(ProbabilityDistribution):
         return tf.argmax(self.logits, axis=-1)
 
     def neglogp(self, x):
-        # return tf.nn. (logits=self.logits, labels=x)
         # Note: we can't use sparse_softmax_cross_entropy_with_logits because
         #       the implementation does not allow second-order derivatives...
         one_hot_actions = tf.one_hot(x, self.logits.get_shape().as_list()[-1])
@@ -326,6 +328,8 @@ class CategoricalProbabilityDistribution(ProbabilityDistribution):
 
     def sample(self):
         self.current_seed += 1
+        # Gumbel-max trick to sample
+        # a categorical distribution (see http://amid.fish/humble-gumbel)
         uniform = tf.random_uniform(tf.shape(self.logits), dtype=self.logits.dtype, seed=self.current_seed)
         return tf.argmax(self.logits - tf.log(-tf.log(uniform)), axis=-1)
 
@@ -408,7 +412,7 @@ class DiagGaussianProbabilityDistribution(ProbabilityDistribution):
 
     def neglogp(self, x):
         return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) \
-               + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) \
+               + 0.5 * np.log(2.0 * np.pi) * tf.cast(tf.shape(x)[-1], tf.float32) \
                + tf.reduce_sum(self.logstd, axis=-1)
 
     def kl(self, other):
@@ -458,7 +462,8 @@ class BernoulliProbabilityDistribution(ProbabilityDistribution):
         return tf.round(self.probabilities)
 
     def neglogp(self, x):
-        return tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits, labels=tf.to_float(x)),
+        return tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits,
+                                                                     labels=tf.cast(x, tf.float32)),
                              axis=-1)
 
     def kl(self, other):
@@ -473,7 +478,7 @@ class BernoulliProbabilityDistribution(ProbabilityDistribution):
 
     def sample(self):
         samples_from_uniform = tf.random_uniform(tf.shape(self.probabilities))
-        return tf.to_float(math_ops.less(samples_from_uniform, self.probabilities))
+        return tf.cast(math_ops.less(samples_from_uniform, self.probabilities), tf.float32)
 
     @classmethod
     def fromflat(cls, flat):

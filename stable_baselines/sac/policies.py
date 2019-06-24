@@ -10,9 +10,9 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
 
-def gaussian_logp(input_, mu_, log_std):
+def gaussian_likelihood(input_, mu_, log_std):
     """
-    Helper to computer log probability of a gaussian.
+    Helper to computer log likelihood of a gaussian.
     Here we assume this is a Diagonal Gaussian.
 
     :param input_: (tf.Tensor)
@@ -92,15 +92,12 @@ class SACPolicy(BasePolicy):
     :param n_env: (int) The number of environments to run
     :param n_steps: (int) The number of steps to run for each environment
     :param n_batch: (int) The number of batch to run (n_envs * n_steps)
-    :param n_lstm: (int) The number of LSTM cells (for recurrent policies)
     :param reuse: (bool) If the policy is reusable or not
     :param scale: (bool) whether or not to scale the input
     """
 
-    def __init__(self, sess, ob_space, ac_space, n_env=1, n_steps=1, n_batch=None,
-                 n_lstm=256, reuse=False, scale=False):
-        super(SACPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
-                                        n_lstm=n_lstm, reuse=reuse, scale=scale)
+    def __init__(self, sess, ob_space, ac_space, n_env=1, n_steps=1, n_batch=None, reuse=False, scale=False):
+        super(SACPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, scale=scale)
         assert isinstance(ac_space, Box), "Error: the action space must be of type gym.spaces.Box"
         assert (np.abs(ac_space.low) == ac_space.high).all(), "Error: the action space low and high must be symmetric"
 
@@ -109,6 +106,8 @@ class SACPolicy(BasePolicy):
         self.value_fn = None
         self.policy = None
         self.deterministic_policy = None
+        self.act_mu = None
+        self.std = None
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
         """
@@ -150,12 +149,12 @@ class SACPolicy(BasePolicy):
 
     def proba_step(self, obs, state=None, mask=None):
         """
-        Returns the action probability for a single step
+        Returns the action probability params (mean, std) for a single step
 
         :param obs: ([float] or [int]) The current observation of the environment
         :param state: ([float]) The last states (used in recurrent policies)
         :param mask: ([float]) The last masks (used in recurrent policies)
-        :return: ([float]) the action probability
+        :return: ([float], [float])
         """
         raise NotImplementedError
 
@@ -176,14 +175,18 @@ class FeedForwardPolicy(SACPolicy):
     :param feature_extraction: (str) The feature extraction type ("cnn" or "mlp")
     :param layer_norm: (bool) enable layer normalisation
     :param reg_weight: (float) Regularization loss weight for the policy parameters
+    :param reg_weight: (float) Regularization loss weight for the policy parameters
+    :param act_fun: (tf.func) the activation function to use in the neural network.
     :param kwargs: (dict) Extra keyword arguments for the nature CNN feature extraction
     """
 
     def __init__(self, sess, ob_space, ac_space, n_env=1, n_steps=1, n_batch=None, reuse=False, layers=None,
                  cnn_extractor=nature_cnn, feature_extraction="cnn", reg_weight=0.0,
-                 layer_norm=False, **kwargs):
+                 layer_norm=False, act_fun=tf.nn.relu, **kwargs):
         super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
                                                 reuse=reuse, scale=(feature_extraction == "cnn"))
+
+        self._kwargs_check(feature_extraction, kwargs)
         self.layer_norm = layer_norm
         self.feature_extraction = feature_extraction
         self.cnn_kwargs = kwargs
@@ -198,7 +201,7 @@ class FeedForwardPolicy(SACPolicy):
 
         assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
 
-        self.activ_fn = tf.nn.relu
+        self.activ_fn = act_fun
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
         if obs is None:
@@ -212,7 +215,7 @@ class FeedForwardPolicy(SACPolicy):
 
             pi_h = mlp(pi_h, self.layers, self.activ_fn, layer_norm=self.layer_norm)
 
-            mu_ = tf.layers.dense(pi_h, self.ac_space.shape[0], activation=None)
+            self.act_mu = mu_ = tf.layers.dense(pi_h, self.ac_space.shape[0], activation=None)
             # Important difference with SAC and other algo such as PPO:
             # the std depends on the state, so we cannot use stable_baselines.common.distribution
             log_std = tf.layers.dense(pi_h, self.ac_space.shape[0], activation=None)
@@ -228,10 +231,10 @@ class FeedForwardPolicy(SACPolicy):
         # Original Implementation
         log_std = tf.clip_by_value(log_std, LOG_STD_MIN, LOG_STD_MAX)
 
-        std = tf.exp(log_std)
+        self.std = std = tf.exp(log_std)
         # Reparameterization trick
         pi_ = mu_ + tf.random_normal(tf.shape(mu_)) * std
-        logp_pi = gaussian_logp(pi_, mu_, log_std)
+        logp_pi = gaussian_likelihood(pi_, mu_, log_std)
         self.entropy = gaussian_entropy(log_std)
         # MISSING: reg params for log and mu
         # Apply squashing and account for it in the probabilty
@@ -283,7 +286,7 @@ class FeedForwardPolicy(SACPolicy):
         return self.sess.run(self.policy, {self.obs_ph: obs})
 
     def proba_step(self, obs, state=None, mask=None):
-        pass
+        return self.sess.run([self.act_mu, self.std], {self.obs_ph: obs})
 
 
 class CnnPolicy(FeedForwardPolicy):

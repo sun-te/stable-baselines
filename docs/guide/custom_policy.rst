@@ -5,7 +5,42 @@ Custom Policy Network
 
 Stable baselines provides default policy networks (see :ref:`Policies <policies>` ) for images (CNNPolicies)
 and other type of input features (MlpPolicies).
-However, you can also easily define a custom architecture for the policy (or value) network:
+
+One way of customising the policy network architecture is to pass arguments when creating the model,
+using ``policy_kwargs`` parameter:
+
+.. code-block:: python
+
+  import gym
+  import tensorflow as tf
+
+  from stable_baselines import PPO2
+
+  # Custom MLP policy of two layers of size 32 each with tanh activation function
+  policy_kwargs = dict(act_fun=tf.nn.tanh, net_arch=[32, 32])
+  # Create the agent
+  model = PPO2("MlpPolicy", "CartPole-v1", policy_kwargs=policy_kwargs, verbose=1)
+  # Retrieve the environment
+  env = model.get_env()
+  # Train the agent
+  model.learn(total_timesteps=100000)
+  # Save the agent
+  model.save("ppo2-cartpole")
+
+  del model
+  # the policy_kwargs are automatically loaded
+  model = PPO2.load("ppo2-cartpole")
+
+
+You can also easily define a custom architecture for the policy (or value) network:
+
+.. note::
+
+    Defining a custom policy class is equivalent to passing ``policy_kwargs``.
+    However, it lets you name the policy and so makes usually the code clearer.
+    ``policy_kwargs`` should be rather used when doing hyperparameter search.
+
+
 
 .. code-block:: python
 
@@ -30,18 +65,21 @@ However, you can also easily define a custom architecture for the policy (or val
   model = A2C(CustomPolicy, env, verbose=1)
   # Train the agent
   model.learn(total_timesteps=100000)
+  # Save the agent
+  model.save("a2c-lunar")
 
   del model
   # When loading a model with a custom policy
   # you MUST pass explicitly the policy when loading the saved model
-  model = A2C.load(policy=CustomPolicy)
+  model = A2C.load("a2c-lunar", policy=CustomPolicy)
 
 .. warning::
 
-  When loading a model with a custom policy, you must pass the custom policy explicitly when loading the model. (cf previous example)
+    When loading a model with a custom policy, you must pass the custom policy explicitly when loading the model.
+    (cf previous example)
 
 
-You can also registered your policy, to help with code simplicity: you can refer to your custom policy using a string.
+You can also register your policy, to help with code simplicity: you can refer to your custom policy using a string.
 
 .. code-block:: python
 
@@ -128,8 +166,23 @@ Initially shared then diverging: ``[128, dict(vf=[256], pi=[16])]``
            |                |
         action            value
 
+The ``LstmPolicy`` can be used to construct recurrent policies in a similar way:
 
-If however, your task requires a more granular control over the policy architecture, you can redefine the policy directly:
+.. code-block:: python
+
+    class CustomLSTMPolicy(LstmPolicy):
+        def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=64, reuse=False, **_kwargs):
+            super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm, reuse,
+                             net_arch=[8, 'lstm', dict(vf=[5, 10], pi=[10])],
+                             layer_norm=True, feature_extraction="mlp", **_kwargs)
+
+Here the ``net_arch`` parameter takes an additional (mandatory) 'lstm' entry within the shared network section.
+The LSTM is shared between value network and policy network.
+
+
+
+
+If your task requires even more granular control over the policy architecture, you can redefine the policy directly:
 
 .. code-block:: python
 
@@ -144,13 +197,12 @@ If however, your task requires a more granular control over the policy architect
   # with a nature_cnn feature extractor
   class CustomPolicy(ActorCriticPolicy):
       def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **kwargs):
-          super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256,
-                                             reuse=reuse, scale=True)
+          super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, scale=True)
 
           with tf.variable_scope("model", reuse=reuse):
               activ = tf.nn.relu
 
-              extracted_features = nature_cnn(self.self.processed_obs, **kwargs)
+              extracted_features = nature_cnn(self.processed_obs, **kwargs)
               extracted_features = tf.layers.flatten(extracted_features)
 
               pi_h = extracted_features
@@ -164,27 +216,30 @@ If however, your task requires a more granular control over the policy architect
               value_fn = tf.layers.dense(vf_h, 1, name='vf')
               vf_latent = vf_h
 
-              self.proba_distribution, self.policy, self.q_value = \
+              self._proba_distribution, self._policy, self.q_value = \
                   self.pdtype.proba_distribution_from_latent(pi_latent, vf_latent, init_scale=0.01)
 
-          self.value_fn = value_fn
-          self.initial_state = None
+          self._value_fn = value_fn
           self._setup_init()
 
-      def step(self, obs, state=None, mask=None):
-          action, value, neglogp = self.sess.run([self.action, self._value, self.neglogp], {self.obs_ph: obs})
+      def step(self, obs, state=None, mask=None, deterministic=False):
+          if deterministic:
+              action, value, neglogp = self.sess.run([self.deterministic_action, self.value_flat, self.neglogp],
+                                                     {self.obs_ph: obs})
+          else:
+              action, value, neglogp = self.sess.run([self.action, self.value_flat, self.neglogp],
+                                                     {self.obs_ph: obs})
           return action, value, self.initial_state, neglogp
 
       def proba_step(self, obs, state=None, mask=None):
           return self.sess.run(self.policy_proba, {self.obs_ph: obs})
 
       def value(self, obs, state=None, mask=None):
-          return self.sess.run(self._value, {self.obs_ph: obs})
+          return self.sess.run(self.value_flat, {self.obs_ph: obs})
 
 
   # Create and wrap the environment
-  env = gym.make('Breakout-v0')
-  env = DummyVecEnv([lambda: env])
+  env = DummyVecEnv([lambda: gym.make('Breakout-v0')])
 
   model = A2C(CustomPolicy, env, verbose=1)
   # Train the agent

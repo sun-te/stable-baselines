@@ -13,7 +13,7 @@ Github repository: https://github.com/hill-a/stable-baselines
 
 RL Baselines Zoo (collection of pre-trained agents): https://github.com/araffin/rl-baselines-zoo
 
-RL Baselines zoo also offers a simple interface to train and evaluate agents.
+RL Baselines zoo also offers a simple interface to train, evaluate agents and do hyperparameter tuning.
 
 You can read a detailed presentation of Stable Baselines in the
 Medium article: `link <https://medium.com/@araffin/stable-baselines-a-fork-of-openai-baselines-reinforcement-learning-made-easy-df87c4b2fc82>`_
@@ -38,6 +38,7 @@ This toolset is a fork of OpenAI Baselines, with a major structural refactoring,
 
    guide/install
    guide/quickstart
+   guide/rl
    guide/algos
    guide/examples
    guide/vec_envs
@@ -45,6 +46,8 @@ This toolset is a fork of OpenAI Baselines, with a major structural refactoring,
    guide/custom_policy
    guide/tensorboard
    guide/rl_zoo
+   guide/pretrain
+   guide/checking_nan
 
 
 .. toctree::
@@ -90,7 +93,7 @@ To cite this project in publications:
 .. code-block:: bibtex
 
     @misc{stable-baselines,
-      author = {Hill, Ashley and Raffin, Antonin and Ernestus, Maximilian and Traore, Rene and Dhariwal, Prafulla and Hesse, Christopher and Klimov, Oleg and Nichol, Alex and Plappert, Matthias and Radford, Alec and Schulman, John and Sidor, Szymon and Wu, Yuhuai},
+      author = {Hill, Ashley and Raffin, Antonin and Ernestus, Maximilian and Gleave, Adam and Traore, Rene and Dhariwal, Prafulla and Hesse, Christopher and Klimov, Oleg and Nichol, Alex and Plappert, Matthias and Radford, Alec and Schulman, John and Sidor, Szymon and Wu, Yuhuai},
       title = {Stable Baselines},
       year = {2018},
       publisher = {GitHub},
@@ -102,12 +105,10 @@ Contributing
 ------------
 
 To any interested in making the rl baselines better, there is still some improvements
-that needs to be done: good-to-have features like support for continuous actions (ACER)
-and more documentation on the rl algorithms.
+that needs to be done.
 A full TODO list is available in the `roadmap <https://github.com/hill-a/stable-baselines/projects/1>`_.
 
-If you want to contribute, please open an issue first and then propose your pull request on Github at
-https://github.com/hill-a/stable-baselines.
+If you want to contribute, please read `CONTRIBUTING.md <https://github.com/hill-a/stable-baselines/blob/master/CONTRIBUTING.md>`_ first.
 
 Indices and tables
 -------------------

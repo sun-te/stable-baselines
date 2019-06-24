@@ -22,7 +22,7 @@ class KfacOptimizer:
 
         :param learning_rate: (float) The learning rate
         :param momentum: (float) The momentum value for the TensorFlow momentum optimizer
-        :param clip_kl: (float) gradient clipping for Kullback leiber
+        :param clip_kl: (float) gradient clipping for Kullback-Leibler
         :param kfac_update: (int) update kfac after kfac_update steps
         :param stats_accum_iter: (int) how may steps to accumulate stats
         :param full_stats_init: (bool) whether or not to fully initalize stats
@@ -158,7 +158,8 @@ class KfacOptimizer:
                             if len(b_tensor.get_shape()) > 0 and b_tensor.get_shape()[0].value is None:
                                 b_tensor.set_shape(b_tensor_shape)
                             b_tensors.append(b_tensor)
-                    fprop_op_name = op_types.append('UNK-' + fprop_op.op_def.name)
+                    fprop_op_name = 'UNK-' + fprop_op.op_def.name
+                    op_types.append(fprop_op_name)
 
             return {'opName': fprop_op_name, 'op': fprop_op, 'fpropFactors': f_tensors, 'bpropFactors': b_tensors}
 
@@ -468,11 +469,11 @@ class KfacOptimizer:
 
                     # assume sampled loss is averaged. TODO:figure out better
                     # way to handle this
-                    bprop_factor *= tf.to_float(batch_size)
+                    bprop_factor *= tf.cast(batch_size, tf.float32)
                     ##
 
-                    cov_b = tf.matmul(
-                        bprop_factor, bprop_factor, transpose_a=True) / tf.to_float(tf.shape(bprop_factor)[0])
+                    cov_b = tf.matmul(bprop_factor, bprop_factor,
+                                      transpose_a=True) / tf.cast(tf.shape(bprop_factor)[0], tf.float32)
 
                     update_ops.append(cov_b)
                     stats_updates[stats_var] = cov_b

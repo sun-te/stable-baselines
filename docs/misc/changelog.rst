@@ -5,8 +5,187 @@ Changelog
 
 For download links, please look at `Github release page <https://github.com/hill-a/stable-baselines/releases>`_.
 
-Pre-Release 2.4.0a (WIP)
+
+Pre-Release 2.6.1a0 (WIP)
 --------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+- seed the distributions to get reproducible results
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+- doc fix for the hyperparameter tuning command in the rl zoo
+
+
+
+Release 2.6.0 (2019-06-12)
+--------------------------
+
+**Hindsight Experience Replay (HER) - Reloaded | get/load parameters**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+- **breaking change** removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer`` (see fix below)
+
+
+**Breaking Change:** DDPG replay buffer was unified with DQN/SAC replay buffer. As a result,
+when loading a DDPG model trained with stable_baselines<2.6.0, it throws an import error.
+You can fix that using:
+
+.. code-block:: python
+
+  import sys
+  import pkg_resources
+
+  import stable_baselines
+
+  # Fix for breaking change for DDPG buffer in v2.6.0
+  if pkg_resources.get_distribution("stable_baselines").version >= "2.6.0":
+      sys.modules['stable_baselines.ddpg.memory'] = stable_baselines.deepq.replay_buffer
+      stable_baselines.deepq.replay_buffer.Memory = stable_baselines.deepq.replay_buffer.ReplayBuffer
+
+
+We recommend you to save again the model afterward, so the fix won't be needed the next time the trained agent is loaded.
+
+
+New Features:
+^^^^^^^^^^^^^
+
+- **revamped HER implementation**: clean re-implementation from scratch, now supports DQN, SAC and DDPG
+- add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
+- The parameter ``filter_size`` of the function ``conv`` in A2C utils now supports passing a list/tuple of two integers (height and width), in order to have non-squared kernel matrix. (@yutingsz)
+- add ``random_exploration`` parameter for DDPG and SAC, it may be useful when using HER + DDPG/SAC. This hack was present in the original OpenAI Baselines DDPG + HER implementation.
+- added ``load_parameters`` and ``get_parameters`` to base RL class. With these methods, users are able to load and get parameters to/from existing model, without touching tensorflow. (@Miffyli)
+- added specific hyperparameter for PPO2 to clip the value function (``cliprange_vf``)
+- added ``VecCheckNan`` wrapper
+
+Bug Fixes:
+^^^^^^^^^^
+
+- bugfix for ``VecEnvWrapper.__getattr__`` which enables access to class attributes inherited from parent classes.
+- fixed path splitting in ``TensorboardWriter._get_latest_run_id()`` on Windows machines (@PatrickWalter214)
+- fixed a bug where initial learning rate is logged instead of its placeholder in ``A2C.setup_model`` (@sc420)
+- fixed a bug where number of timesteps is incorrectly updated and logged in ``A2C.learn`` and ``A2C._train_step`` (@sc420)
+- fixed ``num_timesteps`` (total_timesteps) variable in PPO2 that was wrongly computed.
+- fixed a bug in DDPG/DQN/SAC, when there were the number of samples in the replay buffer was lesser than the batch size
+  (thanks to @dwiel for spotting the bug)
+- **removed** ``a2c.utils.find_trainable_params`` please use ``common.tf_util.get_trainable_vars`` instead.
+  ``find_trainable_params`` was returning all trainable variables, discarding the scope argument.
+  This bug was causing the model to save duplicated parameters (for DDPG and SAC)
+  but did not affect the performance.
+
+Deprecations:
+^^^^^^^^^^^^^
+
+- **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
+
+Others:
+^^^^^^^
+
+- **important change** switched to using dictionaries rather than lists when storing parameters, with tensorflow Variable names being the keys. (@Miffyli)
+- removed unused dependencies (tdqm, dill, progressbar2, seaborn, glob2, click)
+- removed ``get_available_gpus`` function which hadn't been used anywhere (@Pastafarianist)
+
+Documentation:
+^^^^^^^^^^^^^^
+
+- added guide for managing ``NaN`` and ``inf``
+- updated ven_env doc
+- misc doc updates
+
+
+Release 2.5.1 (2019-05-04)
+--------------------------
+
+**Bug fixes + improvements in the VecEnv**
+
+**Warning: breaking changes when using custom policies**
+
+- doc update (fix example of result plotter + improve doc)
+- fixed logger issues when stdout lacks ``read`` function
+- fixed a bug in ``common.dataset.Dataset`` where shuffling was not disabled properly (it affects only PPO1 with recurrent policies)
+- fixed output layer name for DDPG q function, used in pop-art normalization and l2 regularization of the critic
+- added support for multi env recording to ``generate_expert_traj`` (@XMaster96)
+- added support for LSTM model recording to ``generate_expert_traj`` (@XMaster96)
+- ``GAIL``: remove mandatory matplotlib dependency and refactor as subclass of ``TRPO`` (@kantneel and @AdamGleave)
+- added ``get_attr()``, ``env_method()`` and ``set_attr()`` methods for all VecEnv.
+  Those methods now all accept ``indices`` keyword to select a subset of envs.
+  ``set_attr`` now returns ``None`` rather than a list of ``None``. (@kantneel)
+- ``GAIL``: ``gail.dataset.ExpertDataset`` supports loading from memory rather than file, and
+  ``gail.dataset.record_expert`` supports returning in-memory rather than saving to file.
+- added support in ``VecEnvWrapper`` for accessing attributes of arbitrarily deeply nested
+  instances of ``VecEnvWrapper`` and ``VecEnv``. This is allowed as long as the attribute belongs
+  to exactly one of the nested instances i.e. it must be unambiguous. (@kantneel)
+- fixed bug where result plotter would crash on very short runs (@Pastafarianist)
+- added option to not trim output of result plotter by number of timesteps (@Pastafarianist)
+- clarified the public interface of ``BasePolicy`` and ``ActorCriticPolicy``. **Breaking change** when using custom policies: ``masks_ph`` is now called ``dones_ph``,
+  and most placeholders were made private: e.g. ``self.value_fn`` is now ``self._value_fn``
+- support for custom stateful policies.
+- fixed episode length recording in ``trpo_mpi.utils.traj_segment_generator`` (@GerardMaggiolino)
+
+
+Release 2.5.0 (2019-03-28)
+--------------------------
+
+**Working GAIL, pretrain RL models and hotfix for A2C with continuous actions**
+
+- fixed various bugs in GAIL
+- added scripts to generate dataset for gail
+- added tests for GAIL + data for Pendulum-v0
+- removed unused ``utils`` file in DQN folder
+- fixed a bug in A2C where actions were cast to ``int32`` even in the continuous case
+- added addional logging to A2C when Monitor wrapper is used
+- changed logging for PPO2: do not display NaN when reward info is not present
+- change default value of A2C lr schedule
+- removed behavior cloning script
+- added ``pretrain`` method to base class, in order to use behavior cloning on all models
+- fixed ``close()`` method for DummyVecEnv.
+- added support for Dict spaces in DummyVecEnv and SubprocVecEnv. (@AdamGleave)
+- added support for arbitrary multiprocessing start methods and added a warning about SubprocVecEnv that are not thread-safe by default.  (@AdamGleave)
+- added support for Discrete actions for GAIL
+- fixed deprecation warning for tf: replaces ``tf.to_float()`` by ``tf.cast()``
+- fixed bug in saving and loading ddpg model when using normalization of obs or returns (@tperol)
+- changed DDPG default buffer size from 100 to 50000.
+- fixed a bug in ``ddpg.py`` in ``combined_stats`` for eval. Computed mean on ``eval_episode_rewards`` and ``eval_qs`` (@keshaviyengar)
+- fixed a bug in ``setup.py`` that would error on non-GPU systems without TensorFlow installed
+
+
+Release 2.4.1 (2019-02-11)
+--------------------------
+
+**Bug fixes and improvements**
+
+- fixed computation of training metrics in TRPO and PPO1
+- added ``reset_num_timesteps`` keyword when calling train() to continue tensorboard learning curves
+- reduced the size taken by tensorboard logs (added a ``full_tensorboard_log`` to enable full logging, which was the previous behavior)
+- fixed image detection for tensorboard logging
+- fixed ACKTR for recurrent policies
+- fixed gym breaking changes
+- fixed custom policy examples in the doc for DQN and DDPG
+- remove gym spaces patch for equality functions
+- fixed tensorflow dependency: cpu version was installed overwritting tensorflow-gpu when present.
+- fixed a bug in ``traj_segment_generator`` (used in ppo1 and trpo) where ``new`` was not updated. (spotted by @junhyeokahn)
+
+
+Release 2.4.0 (2019-01-17)
+--------------------------
+
+**Soft Actor-Critic (SAC) and policy kwargs**
 
 - added Soft Actor-Critic (SAC) model
 - fixed a bug in DQN where prioritized_replay_beta_iters param was not used
@@ -14,7 +193,15 @@ Pre-Release 2.4.0a (WIP)
 - fixed bug related to shape of true_reward (@abhiskk)
 - fixed example code in documentation of tf_util:Function (@JohannesAck)
 - added learning rate schedule for SAC
-- seed the distributions to get reproducible results
+- fixed action probability for continuous actions with actor-critic models
+- added optional parameter to action_probability for likelihood calculation of given action being taken.
+- added more flexible custom LSTM policies
+- added auto entropy coefficient optimization for SAC
+- clip continuous actions at test time too for all algorithms (except SAC/DDPG where it is not needed)
+- added a mean to pass kwargs to policy when creating a model (+ save those kwargs)
+- fixed DQN examples in DQN folder
+- added possibility to pass activation function for DDPG, DQN and SAC
+
 
 Release 2.3.0 (2018-12-05)
 --------------------------
@@ -191,21 +378,26 @@ Release 0.1.6 (2018-07-27)
 -  Added atari tests
 -  Added logger tests
 
-Missing: tests for acktr continuous (+ HER, gail but they rely on
-mujoco...)
+Missing: tests for acktr continuous (+ HER, rely on mujoco...)
 
 Maintainers
 -----------
 
-Stable-Baselines is currently maintained by `Ashley Hill`_ (aka @hill-a) `Antonin Raffin`_ (aka `@araffin`_) and `Maximilian Ernestus`_ (aka @erniejunior).
+Stable-Baselines is currently maintained by `Ashley Hill`_ (aka @hill-a), `Antonin Raffin`_ (aka `@araffin`_),
+`Maximilian Ernestus`_ (aka @erniejunior) and `Adam Gleave`_ (`@AdamGleave`_).
 
 .. _Ashley Hill: https://github.com/hill-a
 .. _Antonin Raffin: https://araffin.github.io/
 .. _Maximilian Ernestus: https://github.com/erniejunior
+.. _Adam Gleave: https://gleave.me/
 .. _@araffin: https://github.com/araffin
+.. _@AdamGleave: https://github.com/adamgleave
 
 Contributors (since v2.0.0):
 ----------------------------
 In random order...
 
 Thanks to @bjmuld @iambenzo @iandanforth @r7vme @brendenpetersen @huvar @abhiskk @JohannesAck
+@EliasHasle @mrakgr @Bleyddyn @antoine-galataud @junhyeokahn @AdamGleave @keshaviyengar @tperol
+@XMaster96 @kantneel @Pastafarianist @GerardMaggiolino @PatrickWalter214 @yutingsz @sc420 @Aaahh @billtubbs
+@Miffyli @dwiel
