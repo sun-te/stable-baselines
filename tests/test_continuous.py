@@ -5,14 +5,10 @@ import gym
 import pytest
 import numpy as np
 
-from stable_baselines import A2C, SAC
+from stable_baselines import A2C, SAC, DDPG, PPO1, PPO2, TRPO
 # TODO: add support for continuous actions
 # from stable_baselines.acer import ACER
 # from stable_baselines.acktr import ACKTR
-from stable_baselines.ddpg import DDPG
-from stable_baselines.ppo1 import PPO1
-from stable_baselines.ppo2 import PPO2
-from stable_baselines.trpo_mpi import TRPO
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines.common.identity_env import IdentityEnvBox
