@@ -42,7 +42,7 @@ class TD3(OffPolicyRLModel):
     :param action_noise: (ActionNoise) the action noise type (None by default), this can help
         for hard exploration problem. Cf DDPG for the different action noise type.
     :param random_exploration: (float) Probability of taking a random action (as in an epsilon-greedy strategy)
-        This is not needed for SAC normally but can help exploring when using HER + TD3.
+        This is not needed for TD3 normally but can help exploring when using HER + TD3.
         This hack was present in the original OpenAI Baselines repo (DDPG + HER)
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug
     :param tensorboard_log: (str) the log location for tensorboard (if None, no logging)
@@ -55,7 +55,7 @@ class TD3(OffPolicyRLModel):
     def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
                  tau=0.005, policy_delay=2, action_noise=None,
-                 target_noise_clip=0.5, target_policy_noise=0.1,
+                 target_noise_clip=0.5, target_policy_noise=0.2,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False):
 
@@ -105,6 +105,8 @@ class TD3(OffPolicyRLModel):
         self.processed_obs_ph = None
         self.processed_next_obs_ph = None
         self.policy_out = None
+        self.policy_train_op = None
+        self.policy_loss = None
 
         if _init_setup_model:
             self.setup_model()
@@ -131,7 +133,7 @@ class TD3(OffPolicyRLModel):
                     self.policy_tf = self.policy(self.sess, self.observation_space, self.action_space,
                                                  **self.policy_kwargs)
                     self.target_policy_tf = self.policy(self.sess, self.observation_space, self.action_space,
-                                                     **self.policy_kwargs)
+                                                        **self.policy_kwargs)
 
                     # Initialize Placeholders
                     self.observations_ph = self.policy_tf.obs_ph
@@ -165,7 +167,6 @@ class TD3(OffPolicyRLModel):
 
                     qf1_target, qf2_target = self.target_policy_tf.make_critics(self.processed_next_obs_ph,
                                                                                 noisy_target_action)
-
 
                 with tf.variable_scope("loss", reuse=False):
                     # Take the min of the two Q-Values (Double-Q Learning)
@@ -218,7 +219,6 @@ class TD3(OffPolicyRLModel):
                     # All ops to call during one training step
                     self.step_ops = [qf1_loss, qf2_loss,
                                      qf1, qf2, train_values_op]
-
 
                     # Monitor losses and entropy in tensorboard
                     tf.summary.scalar('policy_loss', policy_loss)
@@ -311,7 +311,7 @@ class TD3(OffPolicyRLModel):
                 # Afterwards, use the learned policy
                 # if random_exploration is set to 0 (normal setting)
                 if (self.num_timesteps < self.learning_starts
-                    or np.random.rand() < self.random_exploration):
+                        or np.random.rand() < self.random_exploration):
                     # No need to rescale when sampling random action
                     rescaled_action = action = self.env.action_space.sample()
                 else:
@@ -350,14 +350,15 @@ class TD3(OffPolicyRLModel):
                         # Break if the warmup phase is not over
                         # or if there are not enough samples in the replay buffer
                         if not self.replay_buffer.can_sample(self.batch_size) \
-                           or self.num_timesteps < self.learning_starts:
+                                or self.num_timesteps < self.learning_starts:
                             break
                         n_updates += 1
                         # Compute current learning_rate
                         frac = 1.0 - step / total_timesteps
                         current_lr = self.learning_rate(frac)
                         # Update policy and critics (q functions)
-                        mb_infos_vals.append(self._train_step(step, writer, current_lr, (step + grad_step) % self.policy_delay == 0))
+                        mb_infos_vals.append(
+                            self._train_step(step, writer, current_lr, (step + grad_step) % self.policy_delay == 0))
 
                     # Log losses and entropy, useful for monitor training
                     if len(mb_infos_vals) > 0:
@@ -406,7 +407,7 @@ class TD3(OffPolicyRLModel):
             return self
 
     def action_probability(self, observation, state=None, mask=None, actions=None):
-        observation = np.array(observation)
+        _ = np.array(observation)
 
         if actions is not None:
             raise ValueError("Error: TD3 does not have action probabilities.")

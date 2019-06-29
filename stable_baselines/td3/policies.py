@@ -73,7 +73,7 @@ class TD3Policy(BasePolicy):
         :param mask: ([float]) The last masks (used in recurrent policies)
         :return: ([float]) actions
         """
-        raise NotImplementedError
+        return self.step(obs, state, mask)
 
 
 class FeedForwardPolicy(TD3Policy):
