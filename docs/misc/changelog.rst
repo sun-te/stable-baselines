@@ -6,14 +6,17 @@ Changelog
 For download links, please look at `Github release page <https://github.com/hill-a/stable-baselines/releases>`_.
 
 
-Pre-Release 2.6.1a0 (WIP)
+Pre-Release 2.7.0a0 (WIP)
 --------------------------
+
+**Twin Delayed DDPG (TD3)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 
 New Features:
 ^^^^^^^^^^^^^
+- added Twin Delayed DDPG (TD3) algorithm, with HER support
 
 Bug Fixes:
 ^^^^^^^^^^

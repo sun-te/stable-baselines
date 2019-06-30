@@ -34,13 +34,11 @@ class TD3(OffPolicyRLModel):
         it can be a function of the current progress (from 1 to 0)
     :param buffer_size: (int) size of the replay buffer
     :param batch_size: (int) Minibatch size for each gradient update
-    :param tau: (float) the soft update coefficient ("polyak update", between 0 and 1)
+    :param tau: (float) the soft update coefficient ("polyak update" of the target networks, between 0 and 1)
     :param train_freq: (int) Update the model every `train_freq` steps.
     :param learning_starts: (int) how many steps of the model to collect transitions for before learning starts
     :param gradient_steps: (int) How many gradient update after each step
-    :param target_entropy: (str or float) target entropy when learning ent_coef (ent_coef = 'auto')
-    :param action_noise: (ActionNoise) the action noise type (None by default), this can help
-        for hard exploration problem. Cf DDPG for the different action noise type.
+    :param action_noise: (ActionNoise) the action noise type. Cf DDPG for the different action noise type.
     :param random_exploration: (float) Probability of taking a random action (as in an epsilon-greedy strategy)
         This is not needed for TD3 normally but can help exploring when using HER + TD3.
         This hack was present in the original OpenAI Baselines repo (DDPG + HER)
@@ -76,7 +74,6 @@ class TD3(OffPolicyRLModel):
         self.target_noise_clip = target_noise_clip
         self.target_policy_noise = target_policy_noise
 
-        self.value_fn = None
         self.graph = None
         self.replay_buffer = None
         self.episode_reward = None
@@ -99,7 +96,6 @@ class TD3(OffPolicyRLModel):
         self.step_ops = None
         self.target_ops = None
         self.infos_names = None
-        self.entropy = None
         self.target_params = None
         self.learning_rate_ph = None
         self.processed_obs_ph = None
