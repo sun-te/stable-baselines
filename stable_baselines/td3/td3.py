@@ -35,10 +35,15 @@ class TD3(OffPolicyRLModel):
     :param buffer_size: (int) size of the replay buffer
     :param batch_size: (int) Minibatch size for each gradient update
     :param tau: (float) the soft update coefficient ("polyak update" of the target networks, between 0 and 1)
+    :param policy_delay: (int) Policy and target networks will only be updated once every policy_delay steps
+        per training steps. The Q values will be updated policy_delay more often (update every training step). 
+    :param action_noise: (ActionNoise) the action noise type. Cf DDPG for the different action noise type.
+    :param target_policy_noise: (float) Standard deviation of gaussian noise added to target policy
+        (smoothing noise)
+    :param target_noise_clip: (float) Limit for absolute value of target policy smoothing noise.
     :param train_freq: (int) Update the model every `train_freq` steps.
     :param learning_starts: (int) how many steps of the model to collect transitions for before learning starts
     :param gradient_steps: (int) How many gradient update after each step
-    :param action_noise: (ActionNoise) the action noise type. Cf DDPG for the different action noise type.
     :param random_exploration: (float) Probability of taking a random action (as in an epsilon-greedy strategy)
         This is not needed for TD3 normally but can help exploring when using HER + TD3.
         This hack was present in the original OpenAI Baselines repo (DDPG + HER)
@@ -53,7 +58,7 @@ class TD3(OffPolicyRLModel):
     def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
                  tau=0.005, policy_delay=2, action_noise=None,
-                 target_noise_clip=0.5, target_policy_noise=0.2,
+                 target_policy_noise=0.2, target_noise_clip=0.5,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False):
 
@@ -159,13 +164,14 @@ class TD3(OffPolicyRLModel):
                     # Target policy smoothing, by adding clipped noise to target actions
                     target_noise = tf.random_normal(tf.shape(target_policy_out), stddev=self.target_policy_noise)
                     target_noise = tf.clip_by_value(target_noise, -self.target_noise_clip, self.target_noise_clip)
+                    # Clip the noisy action to remain in the bounds [-1, 1] (output of a tanh)
                     noisy_target_action = tf.clip_by_value(target_policy_out + target_noise, -1, 1)
 
                     qf1_target, qf2_target = self.target_policy_tf.make_critics(self.processed_next_obs_ph,
                                                                                 noisy_target_action)
 
                 with tf.variable_scope("loss", reuse=False):
-                    # Take the min of the two Q-Values (Double-Q Learning)
+                    # Take the min of the two Q-Values (clipped Double-Q Learning)
                     min_qf_target = tf.minimum(qf1_target, qf2_target)
 
                     # Targets for Q and V regression
@@ -184,7 +190,8 @@ class TD3(OffPolicyRLModel):
                     self.policy_loss = policy_loss = -tf.reduce_mean(qf1_pi)
 
                     # Policy train op
-                    # (has to be separate from value train op, because min_qf_pi appears in policy_loss)
+                    # will be called only evevry n training steps,
+                    # where n is the policy delay
                     policy_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
                     policy_train_op = policy_optimizer.minimize(policy_loss, var_list=get_vars('model/pi'))
                     self.policy_train_op = policy_train_op
@@ -451,6 +458,9 @@ class TD3(OffPolicyRLModel):
             # this may lead to high memory usage
             # with all transition inside
             # "replay_buffer": self.replay_buffer
+            "policy_delay": self.policy_delay,
+            "target_noise_clip": self.target_noise_clip,
+            "target_policy_noise": self.target_policy_noise,
             "gamma": self.gamma,
             "verbose": self.verbose,
             "observation_space": self.observation_space,
