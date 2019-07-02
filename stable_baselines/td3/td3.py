@@ -36,7 +36,7 @@ class TD3(OffPolicyRLModel):
     :param batch_size: (int) Minibatch size for each gradient update
     :param tau: (float) the soft update coefficient ("polyak update" of the target networks, between 0 and 1)
     :param policy_delay: (int) Policy and target networks will only be updated once every policy_delay steps
-        per training steps. The Q values will be updated policy_delay more often (update every training step). 
+        per training steps. The Q values will be updated policy_delay more often (update every training step).
     :param action_noise: (ActionNoise) the action noise type. Cf DDPG for the different action noise type.
     :param target_policy_noise: (float) Standard deviation of gaussian noise added to target policy
         (smoothing noise)
@@ -426,13 +426,8 @@ class TD3(OffPolicyRLModel):
         observation = observation.reshape((-1,) + self.observation_space.shape)
         actions = self.policy_tf.step(observation)
 
-        # TODO: add noise when deterministic=False is passed
-        # if self.action_noise is not None and not deterministic:
-        #     actions = actions.flatten()
-        #     noise = self.action_noise()
-        #     assert noise.shape == actions.shape
-        #     actions += noise
-        #     actions = np.clip(actions, -1, 1)
+        if self.action_noise is not None and not deterministic:
+            actions = np.clip(actions + self.action_noise(), -1, 1)
 
         actions = actions.reshape((-1,) + self.action_space.shape)  # reshape to the correct action shape
         actions = actions * np.abs(self.action_space.low)  # scale the output for the prediction
