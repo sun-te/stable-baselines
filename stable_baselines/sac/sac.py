@@ -497,7 +497,7 @@ class SAC(OffPolicyRLModel):
                     infos_values = []
             return self
 
-    def action_probability(self, observation, state=None, mask=None, actions=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
         if actions is None:
             warnings.warn("Even thought SAC has a Gaussian policy, it cannot return a distribution as it "
                           "is squashed by an tanh before being scaled and ouputed. Therefore 'action_probability' "
