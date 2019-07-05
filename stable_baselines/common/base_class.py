@@ -639,10 +639,10 @@ class ActorCriticRLModel(BaseRLModel):
                 std = np.exp(logstd)
 
                 n_elts = np.prod(mean.shape[1:])
-                log_normalizer = 1/2 * np.log(2 * np.pi * n_elts)
+                log_normalizer = n_elts/2 * np.log(2 * np.pi) + 1/2 * np.sum(logstd)
 
                 # Diagonal Gaussian action probability, for every action
-                logprob = -np.square(actions - mean) / (2 * std) - log_normalizer
+                logprob = -np.sum(np.square(actions - mean) / (2 * std), axis=1) - log_normalizer
 
             else:
                 warnings.warn("Warning: action_probability not implemented for {} actions space. Returning None."
