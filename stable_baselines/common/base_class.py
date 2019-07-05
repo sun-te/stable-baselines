@@ -432,7 +432,6 @@ class BaseRLModel(ABC):
         raise NotImplementedError()
 
     @classmethod
-    @abstractmethod
     def load(cls, load_path, env=None, **kwargs):
         """
         Load the model from file
@@ -442,8 +441,22 @@ class BaseRLModel(ABC):
             (can be None if you only need prediction from a trained model)
         :param kwargs: extra arguments to change the model when loading
         """
-        # data, param = cls._load_from_file(load_path)
-        raise NotImplementedError()
+        data, params = cls._load_from_file(load_path)
+
+        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
+                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
+                                                                              kwargs['policy_kwargs']))
+
+        model = cls(policy=data["policy"], env=None, _init_setup_model=False)
+        model.__dict__.update(data)
+        model.__dict__.update(kwargs)
+        model.set_env(env)
+        model.setup_model()
+
+        model.load_parameters(params)
+
+        return model
 
     @staticmethod
     def _save_to_file(save_path, data=None, params=None):
@@ -657,24 +670,6 @@ class ActorCriticRLModel(BaseRLModel):
     def save(self, save_path):
         pass
 
-    @classmethod
-    def load(cls, load_path, env=None, **kwargs):
-        data, params = cls._load_from_file(load_path)
-
-        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
-            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
-                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
-                                                                              kwargs['policy_kwargs']))
-
-        model = cls(policy=data["policy"], env=None, _init_setup_model=False)
-        model.__dict__.update(data)
-        model.__dict__.update(kwargs)
-        model.set_env(env)
-        model.setup_model()
-
-        model.load_parameters(params)
-
-        return model
 
 
 class OffPolicyRLModel(BaseRLModel):
@@ -715,11 +710,6 @@ class OffPolicyRLModel(BaseRLModel):
 
     @abstractmethod
     def save(self, save_path):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def load(cls, load_path, env=None, **kwargs):
         pass
 
 

@@ -152,29 +152,29 @@ class TD3(OffPolicyRLModel):
                 with tf.variable_scope("model", reuse=False):
                     # Create the policy
                     self.policy_out = policy_out = self.policy_tf.make_actor(self.processed_obs_ph)
-                    #  Use two Q-functions to improve performance by reducing overestimation bias.
+                    # Use two Q-functions to improve performance by reducing overestimation bias
                     qf1, qf2 = self.policy_tf.make_critics(self.processed_obs_ph, self.actions_ph)
+                    # Q value when following the current policy
                     qf1_pi, _ = self.policy_tf.make_critics(self.processed_obs_ph,
                                                             policy_out, reuse=True)
 
                 with tf.variable_scope("target", reuse=False):
-                    # Create Target networks
+                    # Create target networks
                     target_policy_out = self.target_policy_tf.make_actor(self.processed_next_obs_ph)
-
                     # Target policy smoothing, by adding clipped noise to target actions
                     target_noise = tf.random_normal(tf.shape(target_policy_out), stddev=self.target_policy_noise)
                     target_noise = tf.clip_by_value(target_noise, -self.target_noise_clip, self.target_noise_clip)
                     # Clip the noisy action to remain in the bounds [-1, 1] (output of a tanh)
                     noisy_target_action = tf.clip_by_value(target_policy_out + target_noise, -1, 1)
-
+                    # Q values when following the target policy
                     qf1_target, qf2_target = self.target_policy_tf.make_critics(self.processed_next_obs_ph,
                                                                                 noisy_target_action)
 
                 with tf.variable_scope("loss", reuse=False):
-                    # Take the min of the two Q-Values (clipped Double-Q Learning)
+                    # Take the min of the two target Q-Values (clipped Double-Q Learning)
                     min_qf_target = tf.minimum(qf1_target, qf2_target)
 
-                    # Targets for Q and V regression
+                    # Targets for Q value regression
                     q_backup = tf.stop_gradient(
                         self.rewards_ph +
                         (1 - self.terminals_ph) * self.gamma * min_qf_target
@@ -190,13 +190,13 @@ class TD3(OffPolicyRLModel):
                     self.policy_loss = policy_loss = -tf.reduce_mean(qf1_pi)
 
                     # Policy train op
-                    # will be called only evevry n training steps,
+                    # will be called only every n training steps,
                     # where n is the policy delay
                     policy_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
                     policy_train_op = policy_optimizer.minimize(policy_loss, var_list=get_vars('model/pi'))
                     self.policy_train_op = policy_train_op
 
-                    # Q Values train op
+                    # Q Values optimizer
                     qvalues_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
                     qvalues_params = get_vars('model/values_fn/')
 
@@ -360,6 +360,8 @@ class TD3(OffPolicyRLModel):
                         frac = 1.0 - step / total_timesteps
                         current_lr = self.learning_rate(frac)
                         # Update policy and critics (q functions)
+                        # Npte: the policy is updated less frequently than the Q functions
+                        # this is controlled by the `policy_delay` parameter
                         mb_infos_vals.append(
                             self._train_step(step, writer, current_lr, (step + grad_step) % self.policy_delay == 0))
 
@@ -471,22 +473,3 @@ class TD3(OffPolicyRLModel):
         params_to_save = self.get_parameters()
 
         self._save_to_file(save_path, data=data, params=params_to_save)
-
-    @classmethod
-    def load(cls, load_path, env=None, **kwargs):
-        data, params = cls._load_from_file(load_path)
-
-        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
-            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
-                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
-                                                                              kwargs['policy_kwargs']))
-
-        model = cls(policy=data["policy"], env=env, _init_setup_model=False)
-        model.__dict__.update(data)
-        model.__dict__.update(kwargs)
-        model.set_env(env)
-        model.setup_model()
-
-        model.load_parameters(params)
-
-        return model
