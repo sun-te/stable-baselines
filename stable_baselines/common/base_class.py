@@ -635,11 +635,12 @@ class ActorCriticRLModel(BaseRLModel):
                 prob = np.prod(actions_proba * actions + (1 - actions_proba) * (1 - actions), axis=1)
 
             elif isinstance(self.action_space, gym.spaces.Box):
+                actions = actions.reshape((-1, ) + self.action_space.shape)
                 mean, logstd = actions_proba
                 std = np.exp(logstd)
 
                 n_elts = np.prod(mean.shape[1:])
-                log_normalizer = n_elts/2 * np.log(2 * np.pi) + 1/2 * np.sum(logstd)
+                log_normalizer = n_elts/2 * np.log(2 * np.pi) + 1/2 * np.sum(logstd, axis=1)
 
                 # Diagonal Gaussian action probability, for every action
                 logprob = -np.sum(np.square(actions - mean) / (2 * std), axis=1) - log_normalizer
