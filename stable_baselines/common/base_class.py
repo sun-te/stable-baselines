@@ -428,10 +428,10 @@ class BaseRLModel(ABC):
 
         :param save_path: (str or file-like object) the save location
         """
-        # self._save_to_file(save_path, data={}, params=None)
         raise NotImplementedError()
 
     @classmethod
+    @abstractmethod
     def load(cls, load_path, env=None, **kwargs):
         """
         Load the model from file
@@ -441,22 +441,7 @@ class BaseRLModel(ABC):
             (can be None if you only need prediction from a trained model)
         :param kwargs: extra arguments to change the model when loading
         """
-        data, params = cls._load_from_file(load_path)
-
-        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
-            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
-                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
-                                                                              kwargs['policy_kwargs']))
-
-        model = cls(policy=data["policy"], env=None, _init_setup_model=False)
-        model.__dict__.update(data)
-        model.__dict__.update(kwargs)
-        model.set_env(env)
-        model.setup_model()
-
-        model.load_parameters(params)
-
-        return model
+        raise NotImplementedError()
 
     @staticmethod
     def _save_to_file(save_path, data=None, params=None):
@@ -670,6 +655,32 @@ class ActorCriticRLModel(BaseRLModel):
     def save(self, save_path):
         pass
 
+    @classmethod
+    def load(cls, load_path, env=None, **kwargs):
+        """
+        Load the model from file
+
+        :param load_path: (str or file-like) the saved parameter location
+        :param env: (Gym Envrionment) the new environment to run the loaded model on
+            (can be None if you only need prediction from a trained model)
+        :param kwargs: extra arguments to change the model when loading
+        """
+        data, params = cls._load_from_file(load_path)
+
+        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
+                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
+                                                                              kwargs['policy_kwargs']))
+
+        model = cls(policy=data["policy"], env=None, _init_setup_model=False)
+        model.__dict__.update(data)
+        model.__dict__.update(kwargs)
+        model.set_env(env)
+        model.setup_model()
+
+        model.load_parameters(params)
+
+        return model
 
 
 class OffPolicyRLModel(BaseRLModel):
@@ -712,6 +723,32 @@ class OffPolicyRLModel(BaseRLModel):
     def save(self, save_path):
         pass
 
+    @classmethod
+    def load(cls, load_path, env=None, **kwargs):
+        """
+        Load the model from file
+
+        :param load_path: (str or file-like) the saved parameter location
+        :param env: (Gym Envrionment) the new environment to run the loaded model on
+            (can be None if you only need prediction from a trained model)
+        :param kwargs: extra arguments to change the model when loading
+        """
+        data, params = cls._load_from_file(load_path)
+
+        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
+                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
+                                                                              kwargs['policy_kwargs']))
+
+        model = cls(policy=data["policy"], env=None, _init_setup_model=False)
+        model.__dict__.update(data)
+        model.__dict__.update(kwargs)
+        model.set_env(env)
+        model.setup_model()
+
+        model.load_parameters(params)
+
+        return model
 
 class _UnvecWrapper(VecEnvWrapper):
     def __init__(self, venv):
