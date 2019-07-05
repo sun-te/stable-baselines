@@ -696,7 +696,8 @@ class OffPolicyRLModel(BaseRLModel):
     :param policy_base: (BasePolicy) the base policy used by this method
     """
 
-    def __init__(self, policy, env, replay_buffer, verbose=0, *, requires_vec_env, policy_base, policy_kwargs=None):
+    def __init__(self, policy, env, replay_buffer=None, _init_setup_model=False, verbose=0, *,
+                 requires_vec_env=False, policy_base=None, policy_kwargs=None):
         super(OffPolicyRLModel, self).__init__(policy, env, verbose=verbose, requires_vec_env=requires_vec_env,
                                                policy_base=policy_base, policy_kwargs=policy_kwargs)
 
