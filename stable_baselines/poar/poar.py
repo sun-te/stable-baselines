@@ -54,7 +54,7 @@ class POAR(ActorCriticRLModel):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False):
 
-        super(CPPR, self).__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
+        super(POAR, self).__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
                                    _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs)
         self.buffer_size = buffer_size
         self.learning_rate = learning_rate
@@ -133,6 +133,7 @@ class POAR(ActorCriticRLModel):
 
                 act_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs, 1,
                                         n_batch_step, reuse=False, **self.policy_kwargs)
+                tt()
                 with tf.variable_scope("train_model", reuse=True,
                                        custom_getter=tf_util.outer_scope_getter("train_model")):
                     train_model = self.policy(self.sess, self.observation_space, self.action_space,
@@ -303,7 +304,7 @@ class POAR(ActorCriticRLModel):
 
         return policy_loss, value_loss, policy_entropy, approxkl, clipfrac
 
-    def learn(self, total_timesteps, callback=None, seed=None, log_interval=1, tb_log_name="PPO2",
+    def learn(self, total_timesteps, callback=None, seed=None, log_interval=1, tb_log_name="POAR",
               reset_num_timesteps=True):
         # Transform to callable if needed
         self.learning_rate = get_schedule_fn(self.learning_rate)
@@ -322,7 +323,7 @@ class POAR(ActorCriticRLModel):
             ep_info_buf = deque(maxlen=100)
             t_first_start = time.time()
 
-            buffer = Buffer(env=self.env, n_steps=self.n_steps, size=self.buffer_size)
+            # buffer = Buffer(env=self.env, n_steps=self.n_steps, size=self.buffer_size)
             n_updates = total_timesteps // self.n_batch
             for update in range(1, n_updates + 1):
                 assert self.n_batch % self.nminibatches == 0
@@ -342,7 +343,7 @@ class POAR(ActorCriticRLModel):
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
                     inds = np.arange(self.n_batch)
                     for epoch_num in range(self.noptepochs):
-                        np.random.shuffle(inds)
+                        # np.random.shuffle(inds)
                         for start in range(0, self.n_batch, batch_size):
                             timestep = self.num_timesteps // update_fac + ((self.noptepochs * self.n_batch + epoch_num *
                                                                             self.n_batch + start) // batch_size)
@@ -466,7 +467,7 @@ class Runner(AbstractEnvRunner):
         ep_infos = []
         for _ in range(self.n_steps):
             actions, values, self.states, neglogpacs = self.model.step(self.obs, self.states, self.dones)
-            mb_obs.append(self.obs.copy())
+            mb_obs.append(self.obs.copy()) #每次添加num_cpu个 128*num_cpu (n_env)
             mb_actions.append(actions)
             mb_values.append(values)
             mb_neglogpacs.append(neglogpacs)
@@ -506,7 +507,6 @@ class Runner(AbstractEnvRunner):
 
         mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward = \
             map(swap_and_flatten, (mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward))
-
         return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward
 
 
