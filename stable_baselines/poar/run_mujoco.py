@@ -6,7 +6,7 @@ from stable_baselines.common.cmd_util import mujoco_arg_parser
 from stable_baselines import bench, logger
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.vec_env.vec_normalize import VecNormalize
-from stable_baselines.cppr import CPPR
+from stable_baselines.poar import POAR
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 

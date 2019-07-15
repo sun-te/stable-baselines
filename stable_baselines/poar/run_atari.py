@@ -1,11 +1,11 @@
-from stable_baselines import CPPR, logger
+from stable_baselines import POAR, logger
 from stable_baselines.common.cmd_util import make_atari_env, atari_arg_parser
 from stable_baselines.common.vec_env import VecFrameStack
 from stable_baselines.common.policies import CnnPolicy, CnnLstmPolicy, CnnLnLstmPolicy, MlpPolicy
 
 
 def train(env_id, num_timesteps, seed, policy,
-          n_envs=8, nminibatches=4, n_steps=128):
+          n_envs=12, nminibatches=4, n_steps=128):
     """
     Train PPO2 model for atari environment, for testing purposes
 
